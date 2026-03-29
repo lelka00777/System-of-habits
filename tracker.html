@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SURVIVAL_SCHEDULE_V1</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --terminal-green: #00ff41;
+            --dim-green: #003b00;
+            --text-color: #d1d1d1;
+            --accent-red: #ff3e3e;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--terminal-green);
+            font-family: var(--font-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            text-transform: uppercase;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* ТЕРМИНАЛЬНЫЙ СТИЛЬ */
+        .panel {
+            border: 1px solid var(--terminal-green);
+            padding: 15px;
+            box-shadow: 0 0 10px var(--dim-green);
+            background: rgba(0, 20, 0, 0.5);
+        }
+
+        h2 {
+            border-bottom: 1px solid var(--terminal-green);
+            padding-bottom: 5px;
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+
+        /* КАЛЕНДАРЬ */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            text-align: center;
+        }
+
+        .day-name { font-weight: bold; font-size: 0.7rem; color: var(--text-color); }
+        
+        .day {
+            padding: 8px 0;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .day:hover { background: var(--dim-green); }
+        .current-day { color: var(--bg-color); background: var(--terminal-green); }
+        .selected-day { border: 1px solid var(--terminal-green); box-shadow: inset 0 0 5px var(--terminal-green); }
+        .has-habits::after { content: '•'; display: block; font-size: 10px; margin-top: -5px; }
+
+        /* ТАЙМЕР */
+        #timer {
+            font-size: 4rem;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 0 0 15px var(--terminal-green);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--terminal-green);
+            color: var(--terminal-green);
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: var(--font-main);
+            transition: 0.3s;
+        }
+
+        button:hover { background: var(--terminal-green); color: var(--bg-color); }
+
+        /* ПРИВЫЧКИ */
+        #habit-list {
+            list-style: none;
+            padding: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .habit-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px dashed var(--dim-green);
+        }
+
+        .terminate-btn {
+            color: var(--accent-red);
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        input[type="text"], input[type="number"] {
+            background: transparent;
+            border: 1px solid var(--dim-green);
+            color: var(--terminal-green);
+            padding: 5px;
+            font-family: var(--font-main);
+            outline: none;
+        }
+
+        input:focus { border-color: var(--terminal-green); }
+
+        .settings-row {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <header style="margin-top: 20px;">
+        <h1>[ SYSTEM_ACTIVE: SURVIVAL_SCHEDULE ]</h1>
+    </header>
+
+    <div class="container">
+        <!-- ЛЕВАЯ ПАНЕЛЬ: КАЛЕНДАРЬ -->
+        <div class="panel">
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)">&lt;</button>
+                <h2 id="calendar-month-year">MONTH_YEAR</h2>
+                <button onclick="changeMonth(1)">&gt;</button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid-header">
+                <div class="day-name">ПН</div><div class="day-name">ВТ</div>
+                <div class="day-name">СР</div><div class="day-name">ЧТ</div>
+                <div class="day-name">ПТ</div><div class="day-name">СБ</div>
+                <div class="day-name">ВС</div>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+
+        <!-- ПРАВАЯ ПАНЕЛЬ: ТАЙМЕР И ПРОТОКОЛЫ -->
+        <div class="panel">
+            <h2>POMODORO_PROTOCOL [<span id="session-type">WORK</span>]</h2>
+            <div id="timer">25:00</div>
+            <div class="controls">
+                <button id="start-btn">RUN</button>
+                <button id="pause-btn">PAUSE</button>
+                <button id="reset-btn">ABORT</button>
+            </div>
+            <div class="settings-row">
+                <label>WORK: <input type="number" id="work-duration" value="25" style="width: 40px;"></label>
+                <label>BREAK: <input type="number" id="break-duration" value="5" style="width: 40px;"></label>
+            </div>
+        </div>
+
+        <!-- НИЖНЯЯ ПАНЕЛЬ: ПРИВЫЧКИ -->
+        <div class="panel" style="grid-column: 1 / -1;">
+            <h2>DATE_LOG: <span id="current-selected-display"></span></h2>
+            <ul id="habit-list"></ul>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="habit-input" placeholder="NEW_PROTOCOL_DESC..." style="flex-grow: 1;">
+                <button id="add-habit">INITIATE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- СОСТОЯНИЕ ---
+        let viewDate = new Date(); 
+        let selectedDateKey = formatDate(new Date());
+        let habitData = JSON.parse(localStorage.getItem('habitData')) || {};
+
+        // Таймер
+        let workDuration = parseInt(localStorage.getItem('workDuration')) || 25;
+        let breakDuration = parseInt(localStorage.getItem('breakDuration')) || 5;
+        let isTimerRunning = false;
+        let currentSession = 'WORK'; // 'WORK' или 'BREAK'
+        let timeLeft = workDuration * 60;
+        let timerInterval = null;
+
+        // DOM
+        const grid = document.getElementById('calendar-grid');
+        const monthYearLabel = document.getElementById('calendar-month-year');
+        const habitList = document.getElementById('habit-list');
+        const habitInput = document.getElementById('habit-input');
+        const displaySelected = document.getElementById('current-selected-display');
+        const timerDisplay = document.getElementById('timer');
+        const sessionLabel = document.getElementById('session-type');
+
+        // --- ИНИЦИАЛИЗАЦИЯ ---
+        window.onload = () => {
+            renderCalendar();
+            renderHabits();
+            updateTimerDisplay();
+
+            document.getElementById('start-btn').onclick = startTimer;
+            document.getElementById('pause-btn').onclick = pauseTimer;
+            document.getElementById('reset-btn').onclick = resetTimer;
+            document.getElementById('add-habit').onclick = addHabit;
+            
+            // Настройки
+            document.getElementById('work-duration').onchange = (e) => {
+                workDuration = parseInt(e.target.value) || 25;
+                localStorage.setItem('workDuration', workDuration);
+                if (!isTimerRunning) resetTimer();
+            };
+            document.getElementById('break-duration').onchange = (e) => {
+                breakDuration = parseInt(e.target.value) || 5;
+                localStorage.setItem('breakDuration', breakDuration);
+            };
+
+            habitInput.onkeypress = (e) => { if (e.key === 'Enter') addHabit(); };
+        };
+
+        // --- КАЛЕНДАРЬ ---
+        function renderCalendar() {
+            grid.innerHTML = '';
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+
+            const options = { month: 'long', year: 'numeric' };
+            monthYearLabel.innerText = new Intl.DateTimeFormat('ru-RU', options).format(viewDate);
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const shift = firstDay === 0 ? 6 : firstDay - 1;
+
+            for (let i = 0; i < shift; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'day';
+                empty.style.visibility = 'hidden';
+                grid.appendChild(empty);
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'day';
+                dayEl.innerText = d;
+
+                const dateKey = formatDate(new Date(year, month, d));
+                if (dateKey === formatDate(new Date())) dayEl.classList.add('current-day');
+                if (dateKey === selectedDateKey) dayEl.classList.add('selected-day');
+                if (habitData[dateKey] && habitData[dateKey].length > 0) dayEl.classList.add('has-habits');
+
+                dayEl.onclick = () => {
+                    selectedDateKey = dateKey;
+                    renderCalendar();
+                    renderHabits();
+                };
+                grid.appendChild(dayEl);
+            }
+            displaySelected.innerText = selectedDateKey;
+        }
+
+        function changeMonth(val) {
+            viewDate.setMonth(viewDate.getMonth() + val);
+            renderCalendar();
+        }
+
+        // --- ПРИВЫЧКИ ---
+        function renderHabits() {
+            habitList.innerHTML = '';
+            const todayHabits = habitData[selectedDateKey] || [];
+            
+            if (todayHabits.length === 0) {
+                habitList.innerHTML = '<li style="opacity:0.3">> NO_LOGS_FOUND_FOR_THIS_TEMPORAL_POINT</li>';
+                return;
+            }
+
+            todayHabits.forEach((text, index) => {
+                const li = document.createElement('li');
+                li.className = 'habit-item';
+                li.innerHTML = `<span>> ${text}</span><span class="terminate-btn" onclick="deleteHabit(${index})">[TERMINATE]</span>`;
+                habitList.appendChild(li);
+            });
+        }
+
+        function addHabit() {
+            const val = habitInput.value.trim();
+            if (!val) return;
+            if (!habitData[selectedDateKey]) habitData[selectedDateKey] = [];
+            habitData[selectedDateKey].push(val);
+            habitInput.value = '';
+            saveData();
+            renderHabits();
+            renderCalendar();
+        }
+
+        function deleteHabit(index) {
+            habitData[selectedDateKey].splice(index, 1);
+            if (habitData[selectedDateKey].length === 0) delete habitData[selectedDateKey];
+            saveData();
+            renderHabits();
+            renderCalendar();
+        }
+
+        // --- ТАЙМЕР ---
+        function startTimer() {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    isTimerRunning = false;
+                    playAlarm();
+                    toggleSession();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            currentSession = 'WORK';
+            timeLeft = workDuration * 60;
+            updateTimerDisplay();
+        }
+
+        function toggleSession() {
+            currentSession = currentSession === 'WORK' ? 'BREAK' : 'WORK';
+            timeLeft = (currentSession === 'WORK' ? workDuration : breakDuration) * 60;
+            updateTimerDisplay();
+            startTimer(); // Автозапуск следующей сессии
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            timerDisplay.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            sessionLabel.innerText = currentSession;
+        }
+
+        function playAlarm() {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = context.createOscillator();
+            const gain = context.createGain();
+            osc.connect(gain);
+            gain.connect(context.destination);
+            osc.type = 'square';
+            osc.frequency.value = 440;
+            gain.gain.setValueAtTime(0.1, context.currentTime);
+            osc.start();
+            osc.stop(context.currentTime + 0.5);
+        }
+
+        // --- УТИЛИТЫ ---
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function saveData() {
+            localStorage.setItem('habitData', JSON.stringify(habitData));
+        }
+    </script>
+</body>
+</html>
